@@ -1,0 +1,12 @@
+canvas {
+    width: 300px !important;
+    height: 300px !important;
+    background-color: red;
+}
+
+button {
+    border: 1px solid white;
+    border-radius: 20px;
+    padding: 10px;
+    margin: 5px;
+}
