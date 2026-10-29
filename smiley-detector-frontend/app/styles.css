@@ -27,3 +27,8 @@ canvas {
     opacity: 0;
 }
 
+@media screen and (max-width: 700) {
+    #main {
+        text-align: center;
+    }
+}
