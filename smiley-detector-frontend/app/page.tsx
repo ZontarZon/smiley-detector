@@ -8,10 +8,12 @@ import { Suspense } from "react";
 import "./styles.css";
 
 function CanvasScene() {
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color("skyblue");
+  let canvas;
+  let context;
+  let drawingCanvas;
+  let drawingContext;
 
-  //const container = document.querySelector("#scene-container");
+  const scene = new THREE.Scene();
 
   const fov = 35; // AKA Field of View
   const aspect = 1; // Because clientWidth / clientHeight is 300/300
@@ -27,47 +29,150 @@ function CanvasScene() {
     1000,
   );
   camera.position.set(0, 0, 10);
-  //const light = new THREE.PointLight(0xffffff, 1, 100);
-  //light.position.set(0, 10, 10);
   scene.add(camera);
-  //scene.add(light);
+
+  let drawingTexture;
+
+  let drawingMaterial;
+
+  const mouse = new THREE.Vector2();
+
+  const drawingParams = {
+    isDrawing: false,
+    draw: true,
+    brushSize: 10,
+    brushColor: "#0074d9",
+  };
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
 
   function animate() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
   }
 
+  // @source: https://stackoverflow.com/a/52672952/9457623
   function generateImg() {
-    console.log("making img");
-    const url = renderer.domElement.toDataURL("image/png");
+    let newCanvas = drawingCanvas.cloneNode(true);
+    var ctx = newCanvas.getContext("2d");
+    ctx.fillStyle = "#FFF";
+    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+    ctx.drawImage(drawingCanvas, 0, 0);
+    const url = newCanvas.toDataURL("image/jpeg");
     const link = document.createElement("a");
     link.download = "chart.png";
     link.href = url;
     link.click();
   }
 
-  function initCanvasWhiteBox() {
-    const geometry = new THREE.BoxGeometry(300, 300, 1);
-    const material = new THREE.MeshBasicMaterial();
+  const geometry = new THREE.BoxGeometry(300, 300, 1);
 
-    const boxMesh = new THREE.Mesh(geometry, material);
+  let boxMesh;
+  function initCanvasWhiteBox() {
+    boxMesh = new THREE.Mesh(geometry, drawingMaterial);
     scene.add(boxMesh);
-    renderer.render(scene, camera);
+  }
+
+  // @source: https://jsfiddle.net/4jk0c83L/
+  function onPointerDown(event) {
+    if (!drawingParams.draw) {
+      console.log("draw is false");
+      return;
+    }
+
+    event.preventDefault();
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(boxMesh);
+
+    if (intersects.length > 0) {
+      drawingParams.isDrawing = true;
+      draw(intersects[0].uv);
+    } else {
+      console.log("no intersections");
+    }
+  }
+
+  function onPointerMove(event) {
+    if (!drawingParams.isDrawing) return;
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(boxMesh);
+
+    if (intersects.length > 0) {
+      draw(intersects[0].uv);
+    }
+  }
+
+  function onPointerUp() {
+    drawingParams.isDrawing = false;
+  }
+
+  // @source: https://stackoverflow.com/a/18053642/9457623
+  function draw(uv) {
+    // Corrected UV to canvas coords
+    const rect = canvas.getBoundingClientRect();
+
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    // context is 2D for the drawingContext, webgl2 for the scene
+    drawingContext.beginPath();
+    drawingContext.arc(x, y, 10, 0, Math.PI * 2);
+    drawingContext.fillStyle = "green";
+    drawingContext.fill();
   }
 
   useEffect(() => {
+    const canvasContainer = document.querySelector("#scene-container");
+
+    drawingCanvas = document.getElementById("drawingCanvas");
+    drawingContext = drawingCanvas.getContext("2d");
+
+    drawingTexture = new THREE.CanvasTexture(canvas);
+    drawingTexture.colorSpace = THREE.SRGBColorSpace;
+
+    drawingMaterial = new THREE.MeshBasicMaterial({
+      map: drawingTexture,
+      transparent: true,
+      visible: false,
+    });
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(300, 300);
-    const canvasContainer = document.querySelector("#scene-container");
-    if (canvasContainer.childElementCount == 0) {
-      canvasContainer.appendChild(renderer.domElement);
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    if (canvasContainer.childElementCount == 1) {
+      canvas = renderer.domElement;
+      canvas.id = "canvas";
+      canvasContainer.appendChild(canvas);
+      context = canvas.getContext("webgl2");
     }
     initCanvasWhiteBox();
+
+    animate();
+
+    return () => {
+      renderer.dispose();
+      drawingTexture.dispose();
+      canvas.remove();
+    };
   });
 
   return (
     <div>
-      <div id="scene-container"></div>
+      <div id="scene-container">
+        <canvas id="drawingCanvas" width={300} height={300}></canvas>
+      </div>
+
       <button onClick={generateImg}> Download image </button>
     </div>
   );

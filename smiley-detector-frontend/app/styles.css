@@ -1,8 +1,4 @@
-canvas {
-    width: 300px !important;
-    height: 300px !important;
-    background-color: red;
-}
+
 
 button {
     border: 1px solid white;
@@ -10,3 +6,24 @@ button {
     padding: 10px;
     margin: 5px;
 }
+
+#scene-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+}
+
+canvas {
+    width: 300px !important;
+    height: 300px !important;
+    position: absolute;
+}
+
+#drawingCanvas {
+    background-color: white;
+}
+
+#canvas {
+    opacity: 0;
+}
+
