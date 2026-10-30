@@ -27,6 +27,14 @@ canvas {
     opacity: 0;
 }
 
+.red {
+    color: rgb(255, 110, 110);
+}
+
+.green {
+    color: rgb(116, 255, 116);
+}
+
 @media screen and (max-width: 700) {
     #main {
         text-align: center;

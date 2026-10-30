@@ -5,14 +5,10 @@ import { createRoot } from "react-dom/client";
 import React, { useRef, useEffect, useState } from "react";
 import { Canvas, useFrame, ThreeElements } from "@react-three/fiber";
 import { Suspense } from "react";
+import axios, { AxiosError } from "axios";
 import "./styles.css";
 
 function CanvasScene() {
-  let canvas;
-  let context;
-  let drawingCanvas;
-  let drawingContext;
-
   const scene = new THREE.Scene();
   const fov = 35; // AKA Field of View
   const aspect = 1; // Because clientWidth / clientHeight is 300/300
@@ -29,6 +25,9 @@ function CanvasScene() {
   );
   camera.position.set(0, 0, 10);
   scene.add(camera);
+  const canvasRef = useRef(null);
+  const drawingContext = useRef(null);
+  const [prediction, setPrediction] = useState(null);
 
   // invisible contents of the webGL canvas, which lays on top of
   // the drawing canvas, allowing us to use the raycaster.
@@ -42,38 +41,28 @@ function CanvasScene() {
     draw: true,
   };
 
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, camera);
-
-  function animate() {
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-  }
-
   function clearImg() {
-    drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    if (!canvasRef.current || !drawingContext.current) return;
+    drawingContext.current.clearRect(
+      0,
+      0,
+      canvasRef.current.width,
+      canvasRef.current.height,
+    );
   }
 
   // @source: https://stackoverflow.com/a/52672952/9457623
   function downloadImg() {
-    let newCanvas = drawingCanvas.cloneNode(true);
+    let newCanvas = canvasRef.current.cloneNode(true);
     var ctx = newCanvas.getContext("2d");
     ctx.fillStyle = "#FFF";
     ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-    ctx.drawImage(drawingCanvas, 0, 0);
+    ctx.drawImage(canvasRef.current, 0, 0);
     const url = newCanvas.toDataURL("image/jpeg");
     const link = document.createElement("a");
-    link.download = "chart.png";
+    link.download = "smiley.png";
     link.href = url;
     link.click();
-  }
-
-  const geometry = new THREE.BoxGeometry(300, 300, 1);
-
-  let boxMesh;
-  function initCanvasWhiteBox() {
-    boxMesh = new THREE.Mesh(geometry, hiddenMaterial);
-    scene.add(boxMesh);
   }
 
   // @source: https://jsfiddle.net/4jk0c83L/
@@ -88,16 +77,8 @@ function CanvasScene() {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    raycaster.setFromCamera(mouse, camera);
-
-    const intersects = raycaster.intersectObject(boxMesh);
-
-    if (intersects.length > 0) {
-      drawingParams.isDrawing = true;
-      draw(intersects[0].uv);
-    } else {
-      console.log("no intersections");
-    }
+    drawingParams.isDrawing = true;
+    draw(event);
   }
 
   function onPointerMove(event) {
@@ -106,13 +87,7 @@ function CanvasScene() {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    raycaster.setFromCamera(mouse, camera);
-
-    const intersects = raycaster.intersectObject(boxMesh);
-
-    if (intersects.length > 0) {
-      draw(intersects[0].uv);
-    }
+    draw(event);
   }
 
   function onPointerUp() {
@@ -120,74 +95,104 @@ function CanvasScene() {
   }
 
   // @source: https://stackoverflow.com/a/18053642/9457623
-  function draw(uv) {
-    // Corrected UV to canvas coords
-    const rect = canvas.getBoundingClientRect();
+  function draw(event) {
+    console.log(event);
+    const rect = canvasRef.current.getBoundingClientRect();
 
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    // context is 2D for the drawingContext, webgl2 for the scene
-    drawingContext.beginPath();
-    drawingContext.arc(x, y, 10, 0, Math.PI * 2);
-    drawingContext.fillStyle = "black";
-    drawingContext.fill();
+    drawingContext.current.beginPath();
+    drawingContext.current.arc(x, y, 10, 0, Math.PI * 2);
+    drawingContext.current.fillStyle = "black";
+    drawingContext.current.fill();
   }
 
-  // The useEffect contents will run after the drawingCanvas initializes
+  const dataURItoBlob = function (dataURI: string) {
+    // convert base64/URLEncoded data component to raw binary data held in a string
+    var byteString: string;
+    if (dataURI.split(",")[0].indexOf("base64") >= 0)
+      byteString = atob(dataURI.split(",")[1]);
+    else byteString = unescape(dataURI.split(",")[1]);
+
+    // separate out the mime component
+    var mimeString = dataURI.split(",")[0].split(":")[1].split(";")[0];
+
+    // write the bytes of the string to a typed array
+    var ia = new Uint8Array(byteString.length);
+    for (var i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+
+    return new Blob([ia], { type: mimeString });
+  };
+
+  function callForPrediction() {
+    const baseUrl = "http://localhost:3000/api/py/predict";
+    let newCanvas = canvasRef.current.cloneNode(true);
+    var ctx = newCanvas.getContext("2d");
+    ctx.fillStyle = "#FFF";
+    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+    ctx.drawImage(canvasRef.current, 0, 0);
+    // Source - https://stackoverflow.com/a/64463046
+    // Posted by Reinier68
+    // Retrieved 2026-10-30, License - CC BY-SA 4.0
+    const url = newCanvas.toDataURL("image/jpeg");
+    const file = dataURItoBlob(url);
+    const form = new FormData();
+    form.append("file", file);
+
+    try {
+      axios
+        .post(baseUrl, form)
+        .then(function (res) {
+          console.log(res.data[0]);
+          setPrediction(res.data[0][0]);
+        })
+        .catch(function (error) {
+          console.log(error);
+          return;
+        });
+    } catch (error) {
+      console.error("Error:", error);
+      return null;
+    }
+  }
+
+  // The useEffect contents will run after the canvas initializes
   // on the screen.
   useEffect(() => {
-    const canvasContainer = document.querySelector("#scene-container");
+    drawingContext.current = canvasRef.current.getContext("2d");
 
-    // This is the canvas where the color will appear.
-    // However, it is not the canvas where the raycaster runs. That is
-    // The webGL canvas (There are two).
-    // Reason being, we need raycaster abilities, but
-    // the 2D context library for canvases in order to draw.
-    drawingCanvas = document.getElementById("drawingCanvas");
-    drawingContext = drawingCanvas.getContext("2d");
-
-    // Part of the webGL canvas boxGeometry (the flat surface the
-    // raycaster will hit)
-    hiddenTexture = new THREE.CanvasTexture(canvas);
-    hiddenTexture.colorSpace = THREE.SRGBColorSpace;
-    hiddenMaterial = new THREE.MeshBasicMaterial({
-      map: hiddenTexture,
-      transparent: true,
-      visible: false,
-    });
-
-    renderer = new THREE.WebGLRenderer();
-    renderer.setSize(300, 300);
-    renderer.domElement.addEventListener("pointerdown", onPointerDown);
-    renderer.domElement.addEventListener("pointermove", onPointerMove);
-    renderer.domElement.addEventListener("pointerup", onPointerUp);
-
-    // Ensures the DOM doesn't populate the DOM with duplicates during
-    // development re-renders.
-    if (canvasContainer.childElementCount == 1) {
-      canvas = renderer.domElement;
-      canvas.id = "canvas";
-      canvasContainer.appendChild(canvas);
-      context = canvas.getContext("webgl2");
-    }
-    initCanvasWhiteBox();
-    // Ensures automatic updates.
-    animate();
-
-    return () => {
-      renderer.dispose();
-      hiddenTexture.dispose();
-      canvas.remove();
-    };
-  });
+    canvasRef.current.addEventListener("pointerdown", onPointerDown);
+    canvasRef.current.addEventListener("pointermove", onPointerMove);
+    canvasRef.current.addEventListener("pointerup", onPointerUp);
+  }, []);
 
   return (
-    <div>
-      <div id="scene-container">
-        <canvas id="drawingCanvas" width={300} height={300}></canvas>
+    <div className="flex flex-row flex-1 justify-center">
+      <div className="flex flex-col flex-1 items-center justify-center gap-5">
+        <div id="scene-container">
+          <canvas
+            id="drawingCanvas"
+            ref={canvasRef}
+            width={300}
+            height={300}
+          ></canvas>
+        </div>
+        <div className="flex flex-row flex-1 items-center justify-center">
+          <button onClick={clearImg}> Clear image </button>
+          <button onClick={downloadImg}> Download image </button>
+          <button onClick={callForPrediction}>Submit</button>
+        </div>
       </div>
-      <button onClick={clearImg}> Clear image </button>
-      <button onClick={downloadImg}> Download image </button>
+
+      {prediction != null && (
+        <div>
+          <p className="text-2xl">
+            Result: {prediction >= 0.5 ? "Yes!" : "Nope"}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -195,14 +200,17 @@ function CanvasScene() {
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main id="main" className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+      <main
+        id="main"
+        className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between gap-5 py-32 px-16 bg-white dark:bg-black sm:items-start"
+      >
         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+          <h1 className="max-w-xs text-4xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
             Smiley Detector
           </h1>
-          <h2>
+          <h2 className="text-3xl">
             Use the canvas to draw a smiley face! Or not. The Smiley Detector
-            will determine the likelihood that the drawing is a smile.
+            will try to determine if your drawing is a smile.
           </h2>
           <p className="leading-6 text-zinc-600 dark:text-zinc-400">
             Use your mouse or finger to draw on the canvas. Once you're done,
@@ -215,6 +223,67 @@ export default function Home() {
             <CanvasScene />
           </Suspense>
         </div>
+        <h3 className="text-2xl">About the Smiley Detector</h3>
+        <p className="leading-6 text-zinc-600 dark:text-zinc-400">
+          The Smiley Detector is a small Convolutional Neural Network for Binary
+          Classification, leveraging Binary Cross-Entropy Loss, NAdam
+          (Nesterov-accelerated Adaptive Moment) optimization, and weight decay.
+        </p>
+
+        <p className="leading-6 text-zinc-600 dark:text-zinc-400">
+          Here are the training results:
+        </p>
+        <p>
+          <img src="Figure_1.png" alt="model training results" />
+        </p>
+
+        <p className="leading-6 text-zinc-600 dark:text-zinc-400">
+          Data augmentation was used to accommodate for the small dataset.
+        </p>
+
+        <h4 className="text-2xl">Example Results</h4>
+
+        <div className="flex gap-5">
+          <div>
+            <img src="smiley00071.png" alt="accepted smiley" />
+            <p className="green">Yes</p>
+          </div>
+
+          <div>
+            <img src="notsmiley00189.png" alt="not accepted smiley" />
+            <p className="red">No</p>
+          </div>
+        </div>
+
+        <div className="flex gap-5">
+          <div>
+            <img src="smiley00004.png" alt="accepted smiley" />
+            <p className="green">Yes</p>
+          </div>
+
+          <div>
+            <img src="notsmiley00012.png" alt="not accepted smiley" />
+            <p className="red">No</p>
+          </div>
+        </div>
+
+        <div className="flex gap-5">
+          <div>
+            <img src="smiley00391.png" alt="accepted smiley" />
+            <p className="green">Yes</p>
+          </div>
+
+          <div>
+            <img src="notsmiley00070.png" alt="not accepted smiley" />
+            <p className="red">Yes (False positive!)</p>
+          </div>
+        </div>
+
+        <p className="leading-6 text-zinc-600 dark:text-zinc-400">
+          The Smiley Detector appears to have issues mainly with rotated faces
+          and very small faces, for which more data augmentation and/or more
+          data for the dataset could be introduced to improve the model.
+        </p>
       </main>
     </div>
   );
