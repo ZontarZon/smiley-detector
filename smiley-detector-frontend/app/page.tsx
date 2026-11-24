@@ -1,20 +1,13 @@
 "use client";
 
 import * as THREE from "three";
-import { createRoot } from "react-dom/client";
 import React, { useRef, useEffect, useState } from "react";
-import { Canvas, useFrame, ThreeElements } from "@react-three/fiber";
 import { Suspense } from "react";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import "./styles.css";
 
 function CanvasScene() {
   const scene = new THREE.Scene();
-  const fov = 35; // AKA Field of View
-  const aspect = 1; // Because clientWidth / clientHeight is 300/300
-  const near = 0.1; // the near clipping plane
-  const far = 100; // the far clipping plane
-  let renderer;
   const camera = new THREE.OrthographicCamera(
     300 / -2,
     300 / 2,
@@ -28,11 +21,6 @@ function CanvasScene() {
   const canvasRef = useRef(null);
   const drawingContext = useRef(null);
   const [prediction, setPrediction] = useState(null);
-
-  // invisible contents of the webGL canvas, which lays on top of
-  // the drawing canvas, allowing us to use the raycaster.
-  let hiddenTexture;
-  let hiddenMaterial;
 
   const mouse = new THREE.Vector2();
 
@@ -53,8 +41,8 @@ function CanvasScene() {
 
   // @source: https://stackoverflow.com/a/52672952/9457623
   function downloadImg() {
-    let newCanvas = canvasRef.current.cloneNode(true);
-    var ctx = newCanvas.getContext("2d");
+    const newCanvas = canvasRef.current.cloneNode(true);
+    let ctx = newCanvas.getContext("2d");
     ctx.fillStyle = "#FFF";
     ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
     ctx.drawImage(canvasRef.current, 0, 0);
@@ -66,7 +54,7 @@ function CanvasScene() {
   }
 
   // @source: https://jsfiddle.net/4jk0c83L/
-  function onPointerDown(event) {
+  function onPointerDown(event: React.ChangeEvent<HTMLInputElement>) {
     if (!drawingParams.draw) {
       console.log("draw is false");
       return;
@@ -81,7 +69,7 @@ function CanvasScene() {
     draw(event);
   }
 
-  function onPointerMove(event) {
+  function onPointerMove(event: React.ChangeEvent<HTMLInputElement>) {
     if (!drawingParams.isDrawing) return;
 
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -95,7 +83,7 @@ function CanvasScene() {
   }
 
   // @source: https://stackoverflow.com/a/18053642/9457623
-  function draw(event) {
+  function draw(event: React.ChangeEvent<HTMLInputElement>) {
     console.log(event);
     const rect = canvasRef.current.getBoundingClientRect();
 
@@ -109,17 +97,17 @@ function CanvasScene() {
 
   const dataURItoBlob = function (dataURI: string) {
     // convert base64/URLEncoded data component to raw binary data held in a string
-    var byteString: string;
+    let byteString: string;
     if (dataURI.split(",")[0].indexOf("base64") >= 0)
       byteString = atob(dataURI.split(",")[1]);
     else byteString = unescape(dataURI.split(",")[1]);
 
     // separate out the mime component
-    var mimeString = dataURI.split(",")[0].split(":")[1].split(";")[0];
+    let mimeString = dataURI.split(",")[0].split(":")[1].split(";")[0];
 
     // write the bytes of the string to a typed array
-    var ia = new Uint8Array(byteString.length);
-    for (var i = 0; i < byteString.length; i++) {
+    let ia = new Uint8Array(byteString.length);
+    for (let i = 0; i < byteString.length; i++) {
       ia[i] = byteString.charCodeAt(i);
     }
 
@@ -127,13 +115,16 @@ function CanvasScene() {
   };
 
   function callForPrediction() {
+    if (!canvasRef.current) {
+      return;
+    }
     //@source: https://medium.com/@kaweyo_41978/boosting-your-full-stack-workflow-with-next-js-and-fastapi-and-vercel-3c7d3cd8220f
     let baseUrl = "https://smiley-detector.vercel.app/api/py/predict";
     if (process.env.NODE_ENV === "development") {
       baseUrl = "http://localhost:3000/api/py/predict";
     }
     let newCanvas = canvasRef.current.cloneNode(true);
-    var ctx = newCanvas.getContext("2d");
+    let ctx = newCanvas.getContext("2d");
     ctx.fillStyle = "#FFF";
     ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
     ctx.drawImage(canvasRef.current, 0, 0);
@@ -165,11 +156,10 @@ function CanvasScene() {
   // The useEffect contents will run after the canvas initializes
   // on the screen.
   useEffect(() => {
-    drawingContext.current = canvasRef.current.getContext("2d");
-
-    canvasRef.current.addEventListener("pointerdown", onPointerDown);
-    canvasRef.current.addEventListener("pointermove", onPointerMove);
-    canvasRef.current.addEventListener("pointerup", onPointerUp);
+      drawingContext.current = canvasRef.current.getContext("2d");
+      canvasRef.current.addEventListener("pointerdown", onPointerDown);
+      canvasRef.current.addEventListener("pointermove", onPointerMove);
+      canvasRef.current.addEventListener("pointerup", onPointerUp);
   }, []);
 
   return (
@@ -217,7 +207,7 @@ export default function Home() {
             will try to determine if your drawing is a smile.
           </h2>
           <p className="leading-6 text-zinc-600 dark:text-zinc-400">
-            Use your mouse or finger to draw on the canvas. Once you're done,
+            Use your mouse or finger to draw on the canvas. Once you&apos;re done,
             press the Submit button to run your drawing through the
             SmileyDetector.
           </p>
