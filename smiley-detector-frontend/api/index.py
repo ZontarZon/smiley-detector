@@ -7,14 +7,7 @@ from PIL import Image as PImage
 from io import BytesIO
 from pathlib import Path
 
-ENGINEER_ROLES = [
-    {'title': 'Frontend Developer', 'mainskill': 'React'},
-    {'title': 'Backend Developer', 'mainskill': 'Node.js'},
-    {'title': 'Fullstack Developer', 'mainskill': 'Next.js'},
-    {'title': 'Machine Learning Engineer', 'mainskill': 'Tensorflow'},
-    {'title': 'Data Scientist', 'mainskill': 'Apache Spark'},
-    {'title': 'Software Architect', 'mainskill': 'System Analysis'},
-]
+
 # Create upload directory
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -24,15 +17,6 @@ logger.setLevel(logging.DEBUG)
 
 # Create FastAPI instance with custom docs
 app = FastAPI(docs_url="/api/py/docs", debug=True)
-
-
-@app.get("/api/py/engineer-roles")
-async def read_category_by_query(title: str):
-    role_to_return = None
-    for role in ENGINEER_ROLES:
-        if role.get('title').casefold() == title.casefold():
-            role_to_return = role
-    return role_to_return
 
 # @Source: https://betterstack.com/community/guides/scaling-python/uploading-files-using-fastapi/
 @app.post("/api/py/predict")
