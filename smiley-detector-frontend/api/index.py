@@ -1,5 +1,3 @@
-#import keras
-#import tensorflow as tf
 import onnxruntime as ort
 import logging
 import numpy as np
@@ -8,10 +6,11 @@ from PIL import Image as PImage
 from io import BytesIO
 from pathlib import Path
 
-
 # Create upload directory
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "models" / "model_2.onnx"
 
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.DEBUG)
@@ -25,19 +24,16 @@ async def predict(file: UploadFile = File(...)):
     if file.filename == "":
         raise HTTPException(status_code=400, detail="No file selected")
     try:
-        #model = keras.models.load_model('models/model_2.keras')
+        # I'd love to use keras here, but tensorflow is too chunky.
         model = ort.InferenceSession(
-            "models/model_2.onnx",
+            str(MODEL_PATH),
             providers=["CPUExecutionProvider"]
         )
         contents = await file.read()
         img = PImage.open(BytesIO(contents)).convert("RGB")
         img = np.array(img)
-        logger.debug(file)
-        #img = tf.convert_to_tensor(img, dtype=tf.uint8)
         img = np.asarray(img, dtype="uint8")
         img = np.expand_dims(img, axis=0)
-        #pred = model.predict(img)
         input_name = model.get_inputs()[0].name
 
         pred = model.run(
