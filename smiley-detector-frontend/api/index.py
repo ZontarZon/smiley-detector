@@ -6,9 +6,6 @@ from PIL import Image as PImage
 from io import BytesIO
 from pathlib import Path
 
-# Create upload directory
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "models" / "model_2.onnx"
 
