@@ -1,7 +1,7 @@
 fastapi==0.162.0
-keras-nightly==3.16.0.dev2026102903
 python-multipart==0.0.34
 numpy==2.5.4
+onnxruntime==1.32.0
 pillow==13.0.0
 pip==26.0.1
 requests==2.34.2

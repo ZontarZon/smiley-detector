@@ -153,7 +153,7 @@ function CanvasScene() {
       axios
         .post(baseUrl, form)
         .then(function (res) {
-          console.log(res.data[0]);
+          console.log(res.data);
           setPrediction(res.data[0][0]);
         })
         .catch(function (error) {
