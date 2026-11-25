@@ -128,7 +128,7 @@ function CanvasScene() {
       return;
     }
     //@source: https://medium.com/@kaweyo_41978/boosting-your-full-stack-workflow-with-next-js-and-fastapi-and-vercel-3c7d3cd8220f
-    let baseUrl = "https://smiley-detector.vercel.app/api/py/predict";
+    let baseUrl = "https://smiley-detector-wheat.vercel.app/api/py/predict";
     if (process.env.NODE_ENV === "development") {
       baseUrl = "http://localhost:3000/api/py/predict";
     }

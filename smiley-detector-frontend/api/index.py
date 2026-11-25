@@ -1,5 +1,5 @@
 import keras
-import tensorflow as tf
+#import tensorflow as tf
 import logging
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -29,8 +29,9 @@ async def predict(file: UploadFile = File(...)):
         img = PImage.open(BytesIO(contents)).convert("RGB")
         img = np.array(img)
         logger.debug(file)
-        img = tf.convert_to_tensor(img, dtype=tf.uint8)
-        img = tf.expand_dims(img, axis=0)
+        #img = tf.convert_to_tensor(img, dtype=tf.uint8)
+        img = keras.ops.convert_to_tensor(img, dtype="uint8")
+        img = keras.ops.expand_dims(img, axis=0)
         pred = model.predict(img)
         return(pred.tolist())
     except Exception as e:
