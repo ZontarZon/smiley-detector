@@ -18,8 +18,8 @@ function CanvasScene() {
   );
   camera.position.set(0, 0, 10);
   scene.add(camera);
-  const canvasRef = useRef(null);
-  const drawingContext = useRef(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingContext = useRef<CanvasRenderingContext2D>(null);
   const [prediction, setPrediction] = useState(null);
 
   const mouse = new THREE.Vector2();
@@ -30,31 +30,39 @@ function CanvasScene() {
   };
 
   function clearImg() {
-    if (!canvasRef.current || !drawingContext.current) return;
-    drawingContext.current.clearRect(
-      0,
-      0,
-      canvasRef.current.width,
-      canvasRef.current.height,
-    );
+    if (canvasRef.current && drawingContext.current) {
+      console.log(typeof drawingContext);
+      drawingContext.current.clearRect(
+        0,
+        0,
+        canvasRef.current.width,
+        canvasRef.current.height,
+      );
+    }
   }
 
   // @source: https://stackoverflow.com/a/52672952/9457623
   function downloadImg() {
-    const newCanvas = canvasRef.current.cloneNode(true);
-    let ctx = newCanvas.getContext("2d");
-    ctx.fillStyle = "#FFF";
-    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-    ctx.drawImage(canvasRef.current, 0, 0);
-    const url = newCanvas.toDataURL("image/jpeg");
-    const link = document.createElement("a");
-    link.download = "smiley.png";
-    link.href = url;
-    link.click();
+    if (canvasRef.current) {
+      const newCanvas = document.createElement("canvas");
+      newCanvas.width = 300;
+      newCanvas.height = 300;
+      const ctx = newCanvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#FFF";
+        ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+        ctx.drawImage(canvasRef.current, 0, 0);
+      }
+      const url = newCanvas.toDataURL("image/jpeg");
+      const link = document.createElement("a");
+      link.download = "smiley.png";
+      link.href = url;
+      link.click();
+    }
   }
 
   // @source: https://jsfiddle.net/4jk0c83L/
-  function onPointerDown(event: React.ChangeEvent<HTMLInputElement>) {
+  function onPointerDown(event: MouseEvent) {
     if (!drawingParams.draw) {
       console.log("draw is false");
       return;
@@ -69,7 +77,7 @@ function CanvasScene() {
     draw(event);
   }
 
-  function onPointerMove(event: React.ChangeEvent<HTMLInputElement>) {
+  function onPointerMove(event: MouseEvent) {
     if (!drawingParams.isDrawing) return;
 
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -83,16 +91,17 @@ function CanvasScene() {
   }
 
   // @source: https://stackoverflow.com/a/18053642/9457623
-  function draw(event: React.ChangeEvent<HTMLInputElement>) {
-    console.log(event);
-    const rect = canvasRef.current.getBoundingClientRect();
+  function draw(event: MouseEvent) {
+    if (canvasRef.current && drawingContext.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
 
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    drawingContext.current.beginPath();
-    drawingContext.current.arc(x, y, 10, 0, Math.PI * 2);
-    drawingContext.current.fillStyle = "black";
-    drawingContext.current.fill();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      drawingContext.current.beginPath();
+      drawingContext.current.arc(x, y, 10, 0, Math.PI * 2);
+      drawingContext.current.fillStyle = "black";
+      drawingContext.current.fill();
+    }
   }
 
   const dataURItoBlob = function (dataURI: string) {
@@ -103,10 +112,10 @@ function CanvasScene() {
     else byteString = unescape(dataURI.split(",")[1]);
 
     // separate out the mime component
-    let mimeString = dataURI.split(",")[0].split(":")[1].split(";")[0];
+    const mimeString = dataURI.split(",")[0].split(":")[1].split(";")[0];
 
     // write the bytes of the string to a typed array
-    let ia = new Uint8Array(byteString.length);
+    const ia = new Uint8Array(byteString.length);
     for (let i = 0; i < byteString.length; i++) {
       ia[i] = byteString.charCodeAt(i);
     }
@@ -123,11 +132,15 @@ function CanvasScene() {
     if (process.env.NODE_ENV === "development") {
       baseUrl = "http://localhost:3000/api/py/predict";
     }
-    let newCanvas = canvasRef.current.cloneNode(true);
-    let ctx = newCanvas.getContext("2d");
-    ctx.fillStyle = "#FFF";
-    ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
-    ctx.drawImage(canvasRef.current, 0, 0);
+    const newCanvas = document.createElement("canvas");
+    newCanvas.width = 300;
+    newCanvas.height = 300;
+    const ctx = newCanvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#FFF";
+      ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+      ctx.drawImage(canvasRef.current, 0, 0);
+    }
     // Source - https://stackoverflow.com/a/64463046
     // Posted by Reinier68
     // Retrieved 2026-10-30, License - CC BY-SA 4.0
@@ -155,11 +168,15 @@ function CanvasScene() {
 
   // The useEffect contents will run after the canvas initializes
   // on the screen.
+  // eslint-disable-next-line react-hooks/immutability
   useEffect(() => {
+    if (canvasRef.current) {
       drawingContext.current = canvasRef.current.getContext("2d");
       canvasRef.current.addEventListener("pointerdown", onPointerDown);
       canvasRef.current.addEventListener("pointermove", onPointerMove);
       canvasRef.current.addEventListener("pointerup", onPointerUp);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -207,8 +224,8 @@ export default function Home() {
             will try to determine if your drawing is a smile.
           </h2>
           <p className="leading-6 text-zinc-600 dark:text-zinc-400">
-            Use your mouse or finger to draw on the canvas. Once you&apos;re done,
-            press the Submit button to run your drawing through the
+            Use your mouse or finger to draw on the canvas. Once you&apos;re
+            done, press the Submit button to run your drawing through the
             SmileyDetector.
           </p>
         </div>
